@@ -1,0 +1,1065 @@
+start = odataUri / header / primitiveValue
+
+pstart = primitiveValue
+
+odataUri = serviceRoot ( odataRelativeUri )?  
+
+serviceRoot = ( "https" / "http" )                    
+              "://" host ( ":" port )?
+              "/" ( segmentNz "/" )*
+
+odataRelativeUri = '$batch'                           
+                 / '$entity' "?" entityOptions  
+                 / '$entity' "/" qualifiedEntityTypeName "?" entityCastOptions  
+                 / '$metadata' ( "?" format )? ( context )?
+                 / resourcePath ( "?" queryOptions )?
+
+
+resourcePath = entitySetName                  ( collectionNavigation )? 
+             / singletonEntity                ( singleNavigation )?
+             / actionImportCall 
+             / entityColFunctionImportCall    ( collectionNavigation )? 
+             / entityFunctionImportCall       ( singleNavigation )? 
+             / complexColFunctionImportCall   ( collectionPath )? 
+             / complexFunctionImportCall      ( complexPath )? 
+             / primitiveColFunctionImportCall ( collectionPath )? 
+             / primitiveFunctionImportCall    ( singlePath )? 
+             / crossjoin
+             / '$all'
+
+collectionNavigation = ( "/" qualifiedEntityTypeName )? ( collectionNavPath )?
+collectionNavPath    = keyPredicate ( singleNavigation )?
+                     / collectionPath
+                     / ref
+
+keyPredicate     = simpleKey / compoundKey
+simpleKey        = OPEN keyPropertyValue CLOSE
+compoundKey      = OPEN keyValuePair ( COMMA keyValuePair )* CLOSE
+keyValuePair     = ( primitiveKeyProperty / keyPropertyAlias ) EQ keyPropertyValue
+keyPropertyValue = primitiveLiteral
+keyPropertyAlias = odataIdentifier
+
+singleNavigation = ( "/" qualifiedEntityTypeName )?
+                   ( "/" propertyPath
+                   / boundOperation
+                   / ref 
+                   / value 
+                   )?
+
+propertyPath = entityColNavigationProperty ( collectionNavigation )?
+             / entityNavigationProperty    ( singleNavigation )?
+             / complexColProperty          ( collectionPath )?
+             / complexProperty             ( complexPath )?
+             / primitiveColProperty        ( collectionPath )?
+             / primitiveProperty           ( singlePath )?
+             / streamProperty              ( boundOperation )?
+
+collectionPath = count / boundOperation
+
+singlePath     = value / boundOperation
+
+complexPath    = ( "/" qualifiedComplexTypeName )? 
+                 ( "/" propertyPath 
+                 / boundOperation
+                 )
+
+count = '/$count'
+ref   = '/$ref'
+value = '/$value'
+
+boundOperation = "/" ( boundActionCall
+                     / boundEntityColFuncCall    ( collectionNavigation )? 
+                     / boundEntityFuncCall       ( singleNavigation )? 
+                     / boundComplexColFuncCall   ( collectionPath )? 
+                     / boundComplexFuncCall      ( complexPath )?
+                     / boundPrimitiveColFuncCall ( collectionPath )? 
+                     / boundPrimitiveFuncCall    ( singlePath )? 
+                     )
+
+actionImportCall = actionImport
+boundActionCall  = namespace "." action
+
+boundEntityFuncCall       = namespace "." entityFunction       functionParameters
+boundEntityColFuncCall    = namespace "." entityColFunction    functionParameters
+boundComplexFuncCall      = namespace "." complexFunction      functionParameters
+boundComplexColFuncCall   = namespace "." complexColFunction   functionParameters
+boundPrimitiveFuncCall    = namespace "." primitiveFunction    functionParameters
+boundPrimitiveColFuncCall = namespace "." primitiveColFunction functionParameters
+
+entityFunctionImportCall       = entityFunctionImport       functionParameters
+entityColFunctionImportCall    = entityColFunctionImport    functionParameters
+complexFunctionImportCall      = complexFunctionImport      functionParameters
+complexColFunctionImportCall   = complexColFunctionImport   functionParameters
+primitiveFunctionImportCall    = primitiveFunctionImport    functionParameters
+primitiveColFunctionImportCall = primitiveColFunctionImport functionParameters
+
+functionParameters = OPEN ( functionParameter ( COMMA functionParameter )* )? CLOSE
+functionParameter  = parameterName EQ ( parameterAlias / primitiveLiteral )
+parameterName      = odataIdentifier
+parameterAlias     = AT odataIdentifier
+
+crossjoin = '$crossjoin' OPEN
+            entitySetName ( COMMA entitySetName )*
+            CLOSE
+
+queryOptions = queryOption ( "&" queryOption )*
+queryOption  = systemQueryOption  
+             / aliasAndValue 
+             / customQueryOption  
+             
+entityOptions  = ( entityIdOption "&" )* id ( "&" entityIdOption )*
+entityIdOption = format
+               / customQueryOption
+entityCastOptions = ( entityCastOption "&" )* id ( "&" entityCastOption )*
+entityCastOption  = entityIdOption
+                  / expand 
+                  / select
+
+id = '$id' EQ IRIInQuery       
+
+systemQueryOption = expand 
+                  / filter 
+                  / format 
+                  / id
+                  / inlinecount 
+                  / orderby 
+                  / search
+                  / select 
+                  / skip 
+                  / skiptoken
+                  / top 
+
+expand            = '$expand' EQ expandItem ( COMMA expandItem )*
+expandItem        = STAR ( ref / OPEN levels CLOSE )?
+                  / expandPath
+                    ( ref   ( OPEN expandRefOption   ( SEMI expandRefOption   )* CLOSE )?
+                    / count ( OPEN expandCountOption ( SEMI expandCountOption )* CLOSE )?
+                    /         OPEN expandOption      ( SEMI expandOption      )* CLOSE 
+                    )?
+expandPath        = ( qualifiedEntityTypeName "/" )? 
+                    ( ( complexProperty / complexColProperty ) "/" ( qualifiedComplexTypeName "/" )? )*
+                    navigationProperty 
+                    ( "/" qualifiedEntityTypeName )?
+expandCountOption = filter
+                  / search
+expandRefOption   = expandCountOption
+                  / orderby
+                  / skip 
+                  / top 
+                  / inlinecount
+expandOption      = expandRefOption
+                  / select 
+                  / expand
+                  / levels
+                
+levels = '$levels' EQ ( DIGIT+ / 'max' )
+
+filter = '$filter' EQ boolCommonExpr
+
+orderby     = '$orderby' EQ orderbyItem ( COMMA orderbyItem )*
+orderbyItem = commonExpr ( RWS ( 'asc' / 'desc' ) )?
+
+skip = '$skip' EQ DIGIT+
+top  = '$top'  EQ DIGIT+
+
+format = '$format' EQ
+         ( "atom"
+         / "json" 
+         / "xml"
+         / pchar+ "/" pchar+
+         )                     
+                               
+                          
+inlinecount = '$count' EQ booleanValue
+
+search     = '$search' EQ BWS searchExpr
+searchExpr = ( OPEN BWS searchExpr BWS CLOSE
+             / searchTerm 
+             ) ( searchOrExpr
+               / searchAndExpr
+               )?
+
+searchOrExpr  = RWS 'OR'  RWS searchExpr
+searchAndExpr = RWS ( 'AND' RWS )? searchExpr
+
+searchTerm   = ( 'NOT' RWS )? ( searchPhrase / searchWord )
+searchPhrase = quotationMark qcharNoAMPDQUOTE+ quotationMark
+searchWord   = ALPHA+
+                       
+
+select         = '$select' EQ selectItem ( COMMA selectItem )*
+selectItem     = STAR
+               / allOperationsInSchema 
+               / ( qualifiedEntityTypeName "/" )? 
+                 ( selectProperty
+                 / qualifiedActionName  
+                 / qualifiedFunctionName  
+                 )
+selectProperty = primitiveProperty  
+               / primitiveColProperty 
+               / navigationProperty
+               / selectPath ( "/" selectProperty )?
+selectPath     = ( complexProperty / complexColProperty ) ( "/" qualifiedComplexTypeName )?               
+
+
+allOperationsInSchema = namespace "." STAR                 
+
+qualifiedActionName   = namespace "." action
+qualifiedFunctionName = namespace "." function ( OPEN parameterNames CLOSE )?
+
+parameterNames = parameterName ( COMMA parameterName )*
+
+skiptoken = '$skiptoken' EQ ( qcharNoAMP )+
+
+aliasAndValue = parameterAlias EQ parameterValue
+
+parameterValue = arrayOrObject
+               / commonExpr
+
+customQueryOption = customName ( EQ customValue )?
+customName        = qcharNoAMPEQATDOLLAR ( qcharNoAMPEQ ) *
+customValue       = ( qcharNoAMP )*
+
+     
+context         = "#" contextFragment
+contextFragment = 'Collection($ref)'
+                / '$ref'
+                / 'Collection(Edm.EntityType)'
+                / 'Collection(Edm.ComplexType)'
+                / singletonEntity
+                / qualifiedTypeName
+                / entitySet ( '/$deletedEntity' / '/$link' / '/$deletedLink' )
+                / entitySet keyPredicate "/" contextPropertyPath
+                / entitySet ( selectList )? ( '/$entity' / '/$delta' )?
+                
+entitySet = entitySetName ( containmentNavigation )* ( "/" qualifiedEntityTypeName )?
+            
+containmentNavigation = keyPredicate ( "/" qualifiedEntityTypeName )?
+                        ( "/" complexProperty ( "/" qualifiedComplexTypeName )? )* "/" navigationProperty   
+
+selectList         = OPEN selectListItem ( COMMA selectListItem )* CLOSE
+selectListItem     = STAR 
+                   / allOperationsInSchema 
+                   / ( qualifiedEntityTypeName "/" )? 
+                     ( qualifiedActionName
+                     / qualifiedFunctionName 
+                     / selectListProperty
+                     )
+selectListProperty = primitiveProperty  
+                   / primitiveColProperty 
+                   / navigationProperty ( '+' )? ( selectList )?
+                   / selectPath ( "/" selectListProperty )?
+
+contextPropertyPath = primitiveProperty
+                    / primitiveColProperty
+                    / complexColProperty
+                    / complexProperty ( ( "/" qualifiedComplexTypeName )? "/" contextPropertyPath )?
+                 
+
+commonExpr = ( primitiveLiteral
+             / parameterAlias
+             / arrayOrObject
+             / rootExpr
+             / firstMemberExpr
+             / functionExpr
+             / negateExpr 
+             / methodCallExpr 
+             / parenExpr 
+             / castExpr 
+             ) 
+             ( addExpr 
+             / subExpr 
+             / mulExpr 
+             / divExpr 
+             / modExpr
+             )?  
+
+boolCommonExpr = ( isofExpr 
+                 / boolMethodCallExpr 
+                 / notExpr  
+                 / commonExpr
+                   ( eqExpr 
+                   / neExpr 
+                   / ltExpr  
+                   / leExpr  
+                   / gtExpr 
+                   / geExpr 
+                   / hasExpr 
+                   )?
+                 / boolParenExpr
+                 ) ( andExpr / orExpr )? 
+
+rootExpr = '$root/' ( entitySetName keyPredicate / singletonEntity ) ( singleNavigationExpr )?
+
+firstMemberExpr = memberExpr
+                / inscopeVariableExpr ( "/" memberExpr )?
+
+memberExpr = ( qualifiedEntityTypeName "/" )?
+             ( propertyPathExpr
+             / boundFunctionExpr 
+             )
+             
+propertyPathExpr = ( entityColNavigationProperty ( collectionNavigationExpr )? 
+                   / entityNavigationProperty    ( singleNavigationExpr )? 
+                   / complexColProperty          ( collectionPathExpr )?
+                   / complexProperty             ( complexPathExpr )? 
+                   / primitiveColProperty        ( collectionPathExpr )?
+                   / primitiveProperty           ( singlePathExpr )?
+                   / streamProperty
+                   )
+                   
+inscopeVariableExpr       = implicitVariableExpr 
+                          / lambdaVariableExpr 
+implicitVariableExpr      = '$it'              
+lambdaVariableExpr        = odataIdentifier
+
+collectionNavigationExpr = ( "/" qualifiedEntityTypeName )?
+                           ( keyPredicate ( singleNavigationExpr )? 
+                           / collectionPathExpr 
+                           )
+
+singleNavigationExpr = "/" memberExpr
+
+collectionPathExpr = count 
+                   / "/" boundFunctionExpr
+                   / "/" anyExpr
+                   / "/" allExpr
+ 
+complexPathExpr = "/" ( qualifiedComplexTypeName "/" )?
+                  ( propertyPathExpr 
+                  / boundFunctionExpr 
+                  )
+
+singlePathExpr = "/" boundFunctionExpr
+
+boundFunctionExpr = functionExpr 
+                                 
+                                     
+functionExpr = namespace "."
+               ( entityColFunction    functionExprParameters ( collectionNavigationExpr )? 
+               / entityFunction       functionExprParameters ( singleNavigationExpr )? 
+               / complexColFunction   functionExprParameters ( collectionPathExpr )?
+               / complexFunction      functionExprParameters ( complexPathExpr )? 
+               / primitiveColFunction functionExprParameters ( collectionPathExpr )? 
+               / primitiveFunction    functionExprParameters ( singlePathExpr )? 
+               )
+
+functionExprParameters = OPEN ( functionExprParameter ( COMMA functionExprParameter )* )? CLOSE
+functionExprParameter  = parameterName EQ ( parameterAlias / parameterValue )
+
+anyExpr = 'any' OPEN BWS ( lambdaVariableExpr BWS COLON BWS lambdaPredicateExpr )? BWS CLOSE
+allExpr = 'all' OPEN BWS   lambdaVariableExpr BWS COLON BWS lambdaPredicateExpr   BWS CLOSE
+lambdaPredicateExpr = boolCommonExpr 
+
+methodCallExpr = indexOfMethodCallExpr 
+               / toLowerMethodCallExpr 
+               / toUpperMethodCallExpr  
+               / trimMethodCallExpr 
+               / substringMethodCallExpr 
+               / concatMethodCallExpr 
+               / lengthMethodCallExpr 
+               / yearMethodCallExpr 
+               / monthMethodCallExpr 
+               / dayMethodCallExpr 
+               / hourMethodCallExpr 
+               / minuteMethodCallExpr 
+               / secondMethodCallExpr 
+               / fractionalsecondsMethodCallExpr
+               / totalsecondsMethodCallExpr
+               / dateMethodCallExpr 
+               / timeMethodCallExpr 
+               / roundMethodCallExpr 
+               / floorMethodCallExpr 
+               / ceilingMethodCallExpr 
+               / distanceMethodCallExpr 
+               / geoLengthMethodCallExpr 
+               / totalOffsetMinutesMethodCallExpr
+               / minDateTimeMethodCallExpr
+               / maxDateTimeMethodCallExpr
+               / nowMethodCallExpr
+
+boolMethodCallExpr = endsWithMethodCallExpr 
+                   / startsWithMethodCallExpr 
+                   / containsMethodCallExpr                                          
+                   / intersectsMethodCallExpr 
+
+containsMethodCallExpr   = 'contains'   OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+startsWithMethodCallExpr = 'startswith' OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+endsWithMethodCallExpr   = 'endswith'   OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+lengthMethodCallExpr     = 'length'     OPEN BWS commonExpr BWS CLOSE
+indexOfMethodCallExpr    = 'indexof'    OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+substringMethodCallExpr  = 'substring'  OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS ( COMMA BWS commonExpr BWS )? CLOSE
+toLowerMethodCallExpr    = 'tolower'    OPEN BWS commonExpr BWS CLOSE
+toUpperMethodCallExpr    = 'toupper'    OPEN BWS commonExpr BWS CLOSE
+trimMethodCallExpr       = 'trim'       OPEN BWS commonExpr BWS CLOSE
+concatMethodCallExpr     = 'concat'     OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+
+yearMethodCallExpr               = 'year'               OPEN BWS commonExpr BWS CLOSE
+monthMethodCallExpr              = 'month'              OPEN BWS commonExpr BWS CLOSE
+dayMethodCallExpr                = 'day'                OPEN BWS commonExpr BWS CLOSE
+hourMethodCallExpr               = 'hour'               OPEN BWS commonExpr BWS CLOSE
+minuteMethodCallExpr             = 'minute'             OPEN BWS commonExpr BWS CLOSE
+secondMethodCallExpr             = 'second'             OPEN BWS commonExpr BWS CLOSE
+fractionalsecondsMethodCallExpr  = 'fractionalseconds'  OPEN BWS commonExpr BWS CLOSE
+totalsecondsMethodCallExpr       = 'totalseconds'       OPEN BWS commonExpr BWS CLOSE
+dateMethodCallExpr               = 'date'               OPEN BWS commonExpr BWS CLOSE
+timeMethodCallExpr               = 'time'               OPEN BWS commonExpr BWS CLOSE
+totalOffsetMinutesMethodCallExpr = 'totaloffsetminutes' OPEN BWS commonExpr BWS CLOSE 
+
+minDateTimeMethodCallExpr = 'mindatetime(' BWS ')'
+maxDateTimeMethodCallExpr = 'maxdatetime(' BWS ')'
+nowMethodCallExpr         = 'now(' BWS ')'
+
+roundMethodCallExpr   = 'round'   OPEN BWS commonExpr BWS CLOSE
+floorMethodCallExpr   = 'floor'   OPEN BWS commonExpr BWS CLOSE
+ceilingMethodCallExpr = 'ceiling' OPEN BWS commonExpr BWS CLOSE
+
+distanceMethodCallExpr   = 'geo.distance'   OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+geoLengthMethodCallExpr  = 'geo.length'     OPEN BWS commonExpr BWS CLOSE
+intersectsMethodCallExpr = 'geo.intersects' OPEN BWS commonExpr BWS COMMA BWS commonExpr BWS CLOSE
+
+boolParenExpr = OPEN BWS boolCommonExpr BWS CLOSE
+parenExpr     = OPEN BWS commonExpr     BWS CLOSE
+
+andExpr = RWS 'and' RWS boolCommonExpr
+orExpr  = RWS 'or'  RWS boolCommonExpr
+
+eqExpr = RWS 'eq' RWS commonExpr     
+neExpr = RWS 'ne' RWS commonExpr
+ltExpr = RWS 'lt' RWS commonExpr
+leExpr = RWS 'le' RWS commonExpr
+gtExpr = RWS 'gt' RWS commonExpr
+geExpr = RWS 'ge' RWS commonExpr
+
+hasExpr = RWS 'has' RWS commonExpr
+
+addExpr = RWS 'add' RWS commonExpr
+subExpr = RWS 'sub' RWS commonExpr
+mulExpr = RWS 'mul' RWS commonExpr
+divExpr = RWS 'div' RWS commonExpr
+modExpr = RWS 'mod' RWS commonExpr
+
+negateExpr = "-" BWS commonExpr
+
+notExpr = 'not' RWS boolCommonExpr
+
+isofExpr = 'isof' OPEN BWS ( commonExpr BWS COMMA BWS )? qualifiedTypeName BWS CLOSE
+castExpr = 'cast' OPEN BWS ( commonExpr BWS COMMA BWS )? qualifiedTypeName BWS CLOSE
+
+arrayOrObject = complexColInUri  
+              / complexInUri
+              / rootExprCol
+              / primitiveColInUri
+               
+complexColInUri = beginArray 
+                  ( complexInUri ( valueSeparator complexInUri )* )? 
+                  endArray
+                  
+complexInUri = beginObject
+               ( ( annotationInUri 
+                 / primitivePropertyInUri 
+                 / complexPropertyInUri 
+                 / collectionPropertyInUri  
+                 / navigationPropertyInUri
+                 )
+                 ( valueSeparator 
+                    ( annotationInUri 
+                    / primitivePropertyInUri 
+                    / complexPropertyInUri 
+                    / collectionPropertyInUri  
+                    / navigationPropertyInUri
+                    ) 
+                  )*
+               )?  
+               endObject
+
+collectionPropertyInUri = ( quotationMark primitiveColProperty quotationMark 
+                            nameSeparator 
+                            primitiveColInUri 
+                          ) 
+                        / ( quotationMark complexColProperty quotationMark 
+                            nameSeparator 
+                            complexColInUri
+                          )
+
+primitiveColInUri = beginArray 
+                    ( primitiveLiteralInJSON ( valueSeparator primitiveLiteralInJSON )* )? 
+                    endArray
+                    
+complexPropertyInUri = quotationMark complexProperty quotationMark 
+                       nameSeparator 
+                       complexInUri
+                            
+annotationInUri = quotationMark namespace "." termName quotationMark
+                  nameSeparator
+                  ( complexInUri / complexColInUri / primitiveLiteralInJSON / primitiveColInUri )
+
+primitivePropertyInUri = quotationMark primitiveProperty quotationMark 
+                         nameSeparator 
+                         primitiveLiteralInJSON
+
+navigationPropertyInUri = singleNavPropInJSON
+                        / collectionNavPropInJSON
+singleNavPropInJSON     = quotationMark entityNavigationProperty quotationMark
+													nameSeparator
+													rootExpr
+collectionNavPropInJSON = quotationMark entityColNavigationProperty quotationMark
+													nameSeparator
+													rootExprCol
+
+rootExprCol = beginArray 
+              ( rootExpr ( valueSeparator rootExpr )* )?
+              endArray
+                                        
+beginObject = BWS ( "{" / "%7B" ) BWS
+endObject   = BWS ( "}" / "%7D" ) BWS
+
+beginArray = BWS ( "[" / "%5B" ) BWS 
+endArray   = BWS ( "]" / "%5D" ) BWS
+
+quotationMark  = DQUOTE / "%22"
+nameSeparator  = BWS COLON BWS
+valueSeparator = BWS COMMA BWS
+
+primitiveLiteralInJSON = stringInJSON
+                       / numberInJSON
+                       / 'true' 
+                       / 'false'
+                       / 'null'
+
+stringInJSON = quotationMark charInJSON* quotationMark
+charInJSON   = qcharUnescaped  
+             / qcharJSONSpecial    
+             / escape ( quotationMark 
+                      / escape
+                      / ( "/" / "%2F" ) 
+                      / 'b'             
+                      / 'f'             
+                      / 'n'             
+                      / 'r'             
+                      / 't'             
+                      / 'u' HEXDIG+
+                      )
+
+qcharJSONSpecial = SP / ":" / "{" / "}" / "[" / "]"
+
+escape = "\\" / "%5C"     
+
+numberInJSON = ( "-" )? int ( frac )? ( exp )?
+int          = "0" / ( oneToNine DIGIT* )
+frac         = "." DIGIT+
+exp          = "e" ( "-" / "+" )? DIGIT+
+
+singleQualifiedTypeName = qualifiedEntityTypeName 
+                        / qualifiedComplexTypeName
+                        / qualifiedTypeDefinitionName
+                        / qualifiedEnumTypeName
+                        / primitiveTypeName 
+                  
+qualifiedTypeName = singleQualifiedTypeName                  
+                  / 'Collection' OPEN singleQualifiedTypeName CLOSE
+
+qualifiedEntityTypeName     = namespace "." entityTypeName
+qualifiedComplexTypeName    = namespace "." complexTypeName
+qualifiedTypeDefinitionName = namespace "." typeDefinitionName 
+qualifiedEnumTypeName       = namespace "." enumerationTypeName
+
+namespace     = namespacePart ( "." namespacePart )*
+namespacePart = odataIdentifier
+
+entitySetName       = odataIdentifier
+singletonEntity     = odataIdentifier          
+entityTypeName      = odataIdentifier
+complexTypeName     = odataIdentifier
+typeDefinitionName  = odataIdentifier 
+enumerationTypeName = odataIdentifier
+enumerationMember   = odataIdentifier
+termName            = odataIdentifier
+
+odataIdentifier             = identifierLeadingCharacter identifierCharacter+
+identifierLeadingCharacter  = ALPHA / "_"        
+identifierCharacter         = ALPHA / "_" / DIGIT 
+
+primitiveTypeName = 'Edm.' ( 'Binary'
+                           / 'Boolean'
+                           / 'Byte'
+                           / 'Date' 
+                           / 'DateTimeOffset'
+                           / 'Decimal'
+                           / 'Double'
+                           / 'Duration' 
+                           / 'Guid' 
+                           / 'Int16'
+                           / 'Int32'
+                           / 'Int64'
+                           / 'SByte'
+                           / 'Single'
+                           / 'Stream'
+                           / 'String'
+                           / 'TimeOfDay'
+                           / abstractSpatialTypeName ( concreteSpatialTypeName )? 
+                           )
+abstractSpatialTypeName = 'Geography'
+                        / 'Geometry'
+concreteSpatialTypeName = 'Collection'
+                        / 'LineString'
+                        / 'MultiLineString'
+                        / 'MultiPoint'
+                        / 'MultiPolygon'
+                        / 'Point'
+                        / 'Polygon'
+
+primitiveProperty       = primitiveKeyProperty / primitiveNonKeyProperty
+primitiveKeyProperty    = odataIdentifier
+primitiveNonKeyProperty = odataIdentifier
+primitiveColProperty    = odataIdentifier
+complexProperty         = odataIdentifier
+complexColProperty      = odataIdentifier
+streamProperty          = odataIdentifier
+
+navigationProperty          = entityNavigationProperty / entityColNavigationProperty  
+entityNavigationProperty    = odataIdentifier
+entityColNavigationProperty = odataIdentifier
+
+action       = odataIdentifier
+actionImport = odataIdentifier
+
+function = entityFunction 
+         / entityColFunction 
+         / complexFunction 
+         / complexColFunction 
+         / primitiveFunction 
+         / primitiveColFunction
+         
+entityFunction       = odataIdentifier
+entityColFunction    = odataIdentifier
+complexFunction      = odataIdentifier
+complexColFunction   = odataIdentifier
+primitiveFunction    = odataIdentifier
+primitiveColFunction = odataIdentifier
+
+entityFunctionImport       = odataIdentifier
+entityColFunctionImport    = odataIdentifier
+complexFunctionImport      = odataIdentifier
+complexColFunctionImport   = odataIdentifier
+primitiveFunctionImport    = odataIdentifier
+primitiveColFunctionImport = odataIdentifier
+
+
+primitiveLiteral = nullValue                  
+                 / booleanValue 
+                 / guidValue 
+                 / dateValue
+                 / dateTimeOffsetValue 
+                 / timeOfDayValue
+                 / decimalValue 
+                 / doubleValue 
+                 / singleValue 
+                 / sbyteValue 
+                 / byteValue
+                 / int64Value 
+                 / string                     
+                 / duration                   
+                 / binary 
+                 / enum
+                 / geographyCollection 
+                 / geographyLineString 
+                 / geographyMultiLineString 
+                 / geographyMultiPoint 
+                 / geographyMultiPolygon 
+                 / geographyPoint 
+                 / geographyPolygon 
+                 / geometryCollection 
+                 / geometryLineString 
+                 / geometryMultiLineString 
+                 / geometryMultiPoint 
+                 / geometryMultiPolygon 
+                 / geometryPoint 
+                 / geometryPolygon
+         
+primitiveValue = val:( booleanValue
+               / guidValue
+               / durationValue
+               / dateValue
+               / dateTimeOffsetValue 
+               / timeOfDayValue
+               / enumValue
+               / fullCollectionLiteral
+               / fullLineStringLiteral
+               / fullMultiPointLiteral
+               / fullMultiLineStringLiteral
+               / fullMultiPolygonLiteral
+               / fullPointLiteral
+               / fullPolygonLiteral
+               / decimalValue 
+               / doubleValue 
+               / singleValue 
+               / sbyteValue 
+               / byteValue
+               / int64Value 
+               / binaryValue  ) { return val; }
+
+pValue = val:( booleanValue
+               / guidValue
+               / durationValue
+               / dateValue
+               / dateTimeOffsetValue 
+               / timeOfDayValue
+               / enumValue
+               / int64Value 
+               / binaryValue ) { return val; }
+               
+               
+               
+
+nullValue = 'null' 
+
+binary      = "binary" SQUOTE buffer:binaryValue SQUOTE { return buffer; }
+binaryValue = values:( (base64char base64char base64char base64char)* ( base64b16  / base64b8 )? ) { 
+    return new Buffer( values.join(""), 'base64' ); 
+}
+base64b16   = (base64char base64char) ( 'A' / 'E' / 'I' / 'M' / 'Q' / 'U' / 'Y' / 'c' / 'g' / 'k' / 'o' / 's' / 'w' / '0' / '4' / '8' ) ( "=" )?
+base64b8    = base64char ( 'A' / 'Q' / 'g' / 'w' ) ( "==" )?
+base64char  = ALPHA / DIGIT / "-" / "_"
+
+booleanValue = "true" / "false"
+
+decimalValue = sign:(SIGN)? digits:DIGIT+ decimal:("." DIGIT+)? { 
+    return (sign == '-' ? -1 : 1 ) * parseInt( digits.join("") ) + parseFloat( "0" + decimal.join("") );
+}
+
+doubleValue = decimalValue ( "e" (SIGN)? DIGIT+ )? / nanInfinity 
+singleValue = doubleValue                                       
+nanInfinity = 'NaN' / '-INF' / 'INF'
+
+guidValue = (HEXDIG+) "-" (HEXDIG+) "-" (HEXDIG+) "-" (HEXDIG+) "-" (HEXDIG+)
+
+byteValue  = digits:(DIGIT+) { return parseInt( digits.join("") ); }
+sbyteValue = ( SIGN )? (DIGIT+) { return (sign == '-' ? -1 : 1 ) * parseInt( digits.join("") ); }
+int64Value = sign:SIGN? digits:DIGIT+ { return ( sign === '-' ? -1 : 1 ) * parseInt( digits.join("") ); }
+
+string           = SQUOTE ( SQUOTEInString / pcharNoSQUOTE )* SQUOTE
+SQUOTEInString = SQUOTE SQUOTE 
+
+dateValue = year:year "-" month:month "-" day:day { 
+    var d = new Date();
+    d.setMonth( month - 1 );
+    var localeOffHours = d.getTimezoneOffset() / -60;
+    var localeOffMinutes = d.getTimezoneOffset() % 60;
+    var d = new Date( year, month - 1, day, localeOffHours, localeOffMinutes, 0 );
+    d.setFullYear( year ); // otherwise 0 -> 1900
+    return d;
+}
+
+dateTimeOffsetValue = year:year "-" month:month "-" day:day "T" hour:hour ":" minute:minute ( ":" second:second ( "." fsec:fractionalSeconds )? )? ( "Z" / sign:SIGN offh:hour ":" offm:minute ) { 
+    signMul = sign == '-' ? -1 : 1;
+    var d = new Date();
+    d.setMonth( month - 1 );
+    var localeOffHours = d.getTimezoneOffset() / -60;
+    var localeOffMinutes = d.getTimezoneOffset() % 60;
+    hour += signMul * offh + localeOffHours;
+    minute += signMul * offminute + localeOffMinutes;
+    var d = new Date( year, month - 1, day, hour, minute, seconds );
+    d.setFullYear( year ); // otherwise 0 -> 1900
+    d.setMilliseconds( fsec );
+    return d;
+}
+
+duration      = "duration" SQUOTE durationValue SQUOTE
+durationValue = ( SIGN )? "P" ( DIGIT+ "D" )? ( "T" ( DIGIT+ "H" )? ( DIGIT+ "M" )? ( DIGIT+ ( "." DIGIT+ )? "S" )? )?
+     
+     
+
+timeOfDayValue = hour ":" minute ( ":" second ( "." fractionalSeconds )? )?
+ 
+oneToNine       = "1" / "2" / "3" / "4" / "5" / "6" / "7" / "8" / "9" 
+zeroToFiftyNine = digits:( ( "0" / "1" / "2" / "3" / "4" / "5" ) DIGIT ) { return makeInteger( digits); }
+year  = sign:( "-" )? digits:( "0" DIGIT DIGIT DIGIT/ oneToNine DIGIT DIGIT DIGIT ) { 
+    return ( sign == '-' ? -1 : 1 ) * makeInteger( digits );
+}
+month = digits:( "0" oneToNine
+      / "1" ( "0" / "1" / "2" ) ) { return makeInteger( digits ); }
+day   = digits:( "0" oneToNine
+      / ( "1" / "2" ) DIGIT
+      / "3" ( "0" / "1" ) ) { return makeInteger( digits ); }
+hour   = digits:( ( "0" / "1" ) DIGIT
+       / "2" ( "1" / "2" / "3" ) ) { return makeInteger( digits ); }
+minute = digits:zeroToFiftyNine { return makeInteger( digits ); }
+second = digits:zeroToFiftyNine { return makeInteger( digits ); }
+fractionalSeconds = digits:( DIGIT DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? DIGIT? ) { return makeInteger( digits ); }
+
+enum            = qualifiedEnumTypeName SQUOTE enumValue SQUOTE { 
+    return {
+        type: "enum",
+        value: enumValue
+    }
+}
+enumValue       = head:singleEnumValue tail:( COMMA singleEnumValue )* {
+    var ar = [ head ];
+    Array.prototype.push( ar, tail );
+    return ar.length == 1 ? head : ar;
+}
+singleEnumValue = enumerationMember / enumMemberValue
+enumMemberValue = int64Value
+
+geographyCollection   = geographyPrefix SQUOTE fullCollectionLiteral SQUOTE
+fullCollectionLiteral = sridLiteral collectionLiteral
+collectionLiteral     = "Collection(" geoLiteral ( COMMA geoLiteral )* CLOSE
+geoLiteral            = collectionLiteral
+                      / lineStringLiteral
+                      / multiPointLiteral
+                      / multiLineStringLiteral
+                      / multiPolygonLiteral
+                      / pointLiteral
+                      / polygonLiteral
+
+geographyLineString   = geographyPrefix SQUOTE fullLineStringLiteral SQUOTE
+fullLineStringLiteral = sridLiteral lineStringLiteral
+lineStringLiteral     = "LineString" lineStringData
+lineStringData        = OPEN positionLiteral ( COMMA positionLiteral )+ CLOSE
+
+geographyMultiLineString   = geographyPrefix SQUOTE fullMultiLineStringLiteral SQUOTE
+fullMultiLineStringLiteral = sridLiteral multiLineStringLiteral
+multiLineStringLiteral     = "MultiLineString(" ( lineStringData ( COMMA lineStringData )* )? CLOSE
+
+geographyMultiPoint   = geographyPrefix SQUOTE fullMultiPointLiteral SQUOTE
+fullMultiPointLiteral = sridLiteral multiPointLiteral
+multiPointLiteral     = "MultiPoint(" ( pointData ( COMMA pointData )* )? CLOSE
+
+geographyMultiPolygon   = geographyPrefix SQUOTE fullMultiPolygonLiteral SQUOTE
+fullMultiPolygonLiteral = sridLiteral multiPolygonLiteral
+multiPolygonLiteral     = "MultiPolygon(" ( polygonData ( COMMA polygonData )* )? CLOSE
+
+geographyPoint   = geographyPrefix SQUOTE fullPointLiteral SQUOTE
+fullPointLiteral = sridLiteral pointLiteral
+sridLiteral      = "SRID" EQ (DIGIT+) SEMI
+pointLiteral     = "Point" pointData
+pointData        = OPEN positionLiteral CLOSE
+positionLiteral  = doubleValue SP doubleValue  
+
+geographyPolygon   = geographyPrefix SQUOTE fullPolygonLiteral SQUOTE
+fullPolygonLiteral = sridLiteral polygonLiteral
+polygonLiteral     = "Polygon" polygonData
+polygonData        = OPEN ringLiteral ( COMMA ringLiteral )* CLOSE
+ringLiteral        = OPEN positionLiteral ( COMMA positionLiteral )* CLOSE
+                   
+                   
+                   
+
+geometryCollection      = geometryPrefix SQUOTE fullCollectionLiteral      SQUOTE
+geometryLineString      = geometryPrefix SQUOTE fullLineStringLiteral      SQUOTE
+geometryMultiLineString = geometryPrefix SQUOTE fullMultiLineStringLiteral SQUOTE
+geometryMultiPoint      = geometryPrefix SQUOTE fullMultiPointLiteral      SQUOTE
+geometryMultiPolygon    = geometryPrefix SQUOTE fullMultiPolygonLiteral    SQUOTE
+geometryPoint           = geometryPrefix SQUOTE fullPointLiteral           SQUOTE
+geometryPolygon         = geometryPrefix SQUOTE fullPolygonLiteral         SQUOTE
+
+geographyPrefix = "geography"
+geometryPrefix  = "geometry" 
+
+
+
+
+
+
+header = contentId
+       / odataEntityId
+       / odataIsolation
+       / odataMaxversion
+       / odataVersion
+       / prefer
+
+contentId = "Content-ID" COLON OWS unreserved+
+       
+odataEntityId   = "OData-EntityID"   COLON OWS IRIInHeader
+odataIsolation  = "OData-Isolation"  COLON OWS "snapshot"
+odataMaxversion = "OData-MaxVersion" COLON OWS "4.0"     
+odataVersion    = "OData-Version"    COLON OWS "4.0"     
+      
+prefer     = "Prefer" COLON OWS preference ( COMMA preference )*
+preference = allowEntityReferencesPreference
+           / callbackPreference
+           / continueOnErrorPreference
+           / includeAnnotationsPreference
+           / maxpagesizePreference
+           / respondAsyncPreference
+           / returnPreference
+           / trackChangesPreference
+           / waitPreference
+           
+           
+           
+allowEntityReferencesPreference = "odata.allow-entityreferences"
+
+callbackPreference = "odata.callback" OWS ";" "url" BWS EQ BWS DQUOTE URI DQUOTE
+
+continueOnErrorPreference = "odata.continue-on-error"           
+           
+includeAnnotationsPreference = "odata.include-annotations" BWS EQ BWS DQUOTE annotationsList DQUOTE
+annotationsList      = annotationIdentifier (COMMA annotationIdentifier)*
+annotationIdentifier = ( excludeOperator )?
+                       ( STAR 
+                       / namespace "." ( termName / STAR ) 
+                       ) 
+excludeOperator      = "-"
+           
+maxpagesizePreference = "odata.maxpagesize" BWS EQ BWS oneToNine DIGIT*
+
+respondAsyncPreference = "respond-async"
+
+returnPreference = "return" BWS EQ BWS ( 'representation' / 'minimal' )
+
+trackChangesPreference = "odata.track-changes"
+
+waitPreference = "wait" BWS EQ BWS DIGIT+
+
+
+
+
+
+
+
+
+
+obsText       = [\x80-\xFF]
+
+
+
+
+
+
+
+OWS =  ( SP / HTAB / "%20" / "%09" )*
+RWS = ( SP / HTAB / "%20" / "%09" )+
+BWS = OWS                              
+
+AT     = "@" / "%40"
+COLON  = ":" / "%3A"
+COMMA  = "," / "%2C"
+EQ     = "="
+SIGN   = "+" / "%2B" / "-"
+SEMI   = ";" / "%3B"
+STAR   = "*" / "%2A"
+SQUOTE = "'" / "%27"
+
+OPEN  = "(" / "%28"
+CLOSE = ")" / "%29"
+
+
+
+
+
+
+URI           = scheme ":" hierPart ( "?" query )? ( "#" fragment )?
+hierPart     = "//" authority pathAbempty
+              / pathAbsolute
+              / pathRootless
+
+
+
+
+
+
+
+
+scheme        = ALPHA ( ALPHA / DIGIT / "+" / "-" / "." )*
+authority     = ( userinfo "@" )? host ( ":" port )?
+userinfo      = ( unreserved / pctEncoded / subDelims / ":" )*
+host          = IPLiteral / IPv4address / regName
+port          = DIGIT*
+IPLiteral    = "[" ( IPv6address / IPvFuture  ) "]"
+IPvFuture     = "v" HEXDIG+ "." ( unreserved / subDelims / ":" )+
+IPv6address   =  (( h16 ":" )+) ls32
+                 /                       "::" (( h16 ":" )+) ls32
+                 / (               h16 )? "::" (( h16 ":" )+) ls32
+                 / ( ( h16 ":" )+ h16 )? "::" (( h16 ":" )+) ls32
+                 / ( (( h16 ":" )+) h16 )? "::" (( h16 ":" )+) ls32
+                 / ( (( h16 ":" )+) h16 )? "::"    h16 ":"   ls32
+                 / ( (( h16 ":" )+) h16 )? "::"              ls32
+                 / ( (( h16 ":" )+) h16 )? "::"              h16
+                 / ( (( h16 ":" )+) h16 )? "::"
+h16           = HEXDIG+
+ls32          = ( h16 ":" h16 ) / IPv4address
+IPv4address   = decOctet "." decOctet "." decOctet "." decOctet
+decOctet     = "1" (DIGIT+)
+              / "2" [\x30-\x34] DIGIT     
+              / "25" [\x30-\x35]          
+              / [\x31-\x39] DIGIT         
+              / DIGIT                 
+regName      = ( unreserved / pctEncoded / subDelims )*
+
+
+
+
+
+pathAbempty  = ( "/" segment )*
+pathAbsolute = "/" ( segmentNz ( "/" segment )* )?
+
+pathRootless = segmentNz ( "/" segment )*
+
+segment       = pchar*
+segmentNz    = pchar+
+
+pchar         = unreserved / pctEncoded / subDelims / ":" / "@"
+query         = ( pchar / "/" / "?" )*
+fragment      = ( pchar / "/" / "?" )*
+pctEncoded   = "%" HEXDIG HEXDIG
+unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
+
+
+
+subDelims     =       "$" / "&" / "'" /                                     "=" / otherDelims
+otherDelims   = "!" /                   "(" / ")" / "*" / "+" / "," / ";"
+
+pcharNoSQUOTE       = unreserved / pctEncodedNoSQUOTE / otherDelims / "$" / "&" / "=" / ":" / "@"
+pctEncodedNoSQUOTE = "%" ( "0" / "1" /   "3" / "4" / "5" / "6" / "8" / "9" / AToF ) HEXDIG 
+                      / "%" "2" ( "0" / "1" / "2" / "3" / "4" / "5" / "6" /   "8" / "9" / AToF )
+
+qcharNoAMP              = unreserved / pctEncoded / otherDelims / ":" / "@" / "/" / "?" / "$" / "'" / "="
+qcharNoAMPEQ           = unreserved / pctEncoded / otherDelims / ":" / "@" / "/" / "?" / "$" / "'"
+qcharNoAMPEQATDOLLAR = unreserved / pctEncoded / otherDelims / ":" /       "/" / "?" /       "'"
+
+qcharUnescaped       = unreserved / pctEncodedUnescaped / otherDelims / ":" / "@" / "/" / "?" / "$" / "'" / "="
+pctEncodedUnescaped = "%" ( "0" / "1" /   "3" / "4" /   "6" / "8" / "9" / AToF ) HEXDIG 
+                      / "%" "2" ( "0" / "1" /   "3" / "4" / "5" / "6" / "7" / "8" / "9" / AToF ) 
+                      / "%" "5" ( DIGIT / "A" / "B" /   "D" / "E" / "F" )
+
+qcharNoAMPDQUOTE   = qcharUnescaped 
+                      / escape ( escape / quotationMark )
+                 
+                 
+
+
+
+
+
+
+IRIInHeader = ( VCHAR / obsText )+
+IRIInQuery  = qcharNoAMP+
+
+                      
+
+
+
+
+ALPHA  = [\x41-\x5A] / [\x61-\x7A] 
+DIGIT  = [\x30-\x39] 
+HEXDIG = DIGIT / AToF
+AToF = "A" / "B" / "C" / "D" / "E" / "F" 
+DQUOTE = [\x22]
+SP     = [\x20] 
+HTAB   = [\x09] 
+
+
+VCHAR = [\x21-\x7E] 
+
+
+
+
+
+
+
+
+
+
+

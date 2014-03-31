@@ -1,0 +1,30 @@
+{
+    "name": "odata-url",
+    "version": "0.0.1",
+    "author": "VentureGeeks <info@venturegeeks.com>",
+    "contributors": [
+        {
+            "name": "Aleksis Brezas",
+            "email": "alex@venturegeeks.com"
+        }
+    ],
+    "scripts": {
+        "test": "mocha ./test/parser.js"
+    },
+    "main": "./odata.js",
+    "dependencies": {
+        "pegjs": "0.8.x",
+    },
+    "devDependencies": {
+        "mocha": "1.18.x"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/venturegeeks/node-odata-url"
+    },
+    "keywords": [ "odata", "http", "rest", "api", "server", "cli" ],
+    "license": "MIT",
+    "engines": {
+        "node": ">=0.10"
+    }
+}
